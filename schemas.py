@@ -1,48 +1,104 @@
 """
-Database Schemas
+Database Schemas for Pikalba
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Define MongoDB collection schemas using Pydantic models.
+Each Pydantic model represents a collection (lowercased class name).
 """
+from __future__ import annotations
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Literal, Dict
+from datetime import datetime
 
-from pydantic import BaseModel, Field
-from typing import Optional
-
-# Example schemas (replace with your own):
-
-class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+# ---------- Core Domain Schemas ----------
 
 class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+    sku: str = Field(..., description="Stock keeping unit, unique")
+    title: str
+    description: Optional[str] = None
+    category: Literal["pickleball", "padel", "beach", "apparel"]
+    brand: str
+    price: float = Field(..., ge=0)
+    currency: str = Field(default="USD")
+    images: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    variants: List[Dict] = Field(default_factory=list, description="Size/Color variations")
+    stock: int = Field(default=0, ge=0)
+    fulfillment: Literal["self", "third_party"] = Field(default="self")
+    eco_score: Optional[int] = Field(None, ge=1, le=5)
+    active: bool = Field(default=True)
 
-# Add your own schemas here:
-# --------------------------------------------------
+class CartItem(BaseModel):
+    sku: str
+    quantity: int = Field(..., ge=1)
+    price: float = Field(..., ge=0)
+    title: Optional[str] = None
+    image: Optional[str] = None
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class ShippingAddress(BaseModel):
+    name: str
+    line1: str
+    line2: Optional[str] = None
+    city: str
+    state: Optional[str] = None
+    postal_code: str
+    country: str
+    phone: Optional[str] = None
+
+class Order(BaseModel):
+    user_id: Optional[str] = None
+    email: Optional[EmailStr] = None
+    items: List[CartItem]
+    subtotal: float
+    shipping_cost: float
+    discount: float = 0
+    total: float
+    currency: str = "USD"
+    shipping_address: ShippingAddress
+    shipping_method: Literal["standard", "express"] = "standard"
+    payment_method: Literal["paypal"] = "paypal"
+    status: Literal["pending", "paid", "shipped", "delivered", "cancelled"] = "pending"
+    paypal_order_id: Optional[str] = None
+    tracking_number: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+class Wishlist(BaseModel):
+    user_id: str
+    skus: List[str] = Field(default_factory=list)
+
+class PromoCode(BaseModel):
+    code: str
+    description: Optional[str] = None
+    percent_off: Optional[int] = Field(None, ge=1, le=90)
+    amount_off: Optional[float] = Field(None, ge=0)
+    active: bool = True
+
+class BlogPost(BaseModel):
+    title: str
+    slug: str
+    content: str
+    cover_image: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    published: bool = True
+    created_at: Optional[datetime] = None
+
+class Event(BaseModel):
+    title: str
+    date: datetime
+    location: str
+    description: Optional[str] = None
+    link: Optional[str] = None
+
+class Newsletter(BaseModel):
+    email: EmailStr
+    source: Optional[str] = None
+
+class RecommendationFeedback(BaseModel):
+    user_id: Optional[str] = None
+    sku: str
+    liked: bool
+
+class User(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+    locale: Literal["en", "es"] = "en"
+    marketing_opt_in: bool = False
